@@ -174,4 +174,55 @@ final class CrashubClientTest extends TestCase
         $body = json_decode($lastRequest->getBody()->getContents(), true);
         $this->assertNotEmpty($body['server']['hostname']);
     }
+
+    public function testSendsCustomContextSetInAdvance()
+    {
+        $this->crashubClient->context('key1', 1);
+        $this->crashubClient->context(['key2' => 'value']);
+
+        $this->crashubClient->report(new \Exception('Test Error'));
+
+        $lastRequest = $this->httpClient->lastRequest();
+        $body = json_decode($lastRequest->getBody()->getContents(), true);
+        $this->assertEquals(1, $body['context']['key1']);
+        $this->assertEquals('value', $body['context']['key2']);
+    }
+
+    public function testSendsCustomContextSetOnReport()
+    {
+        $this->crashubClient->report(new \Exception('Test Error'), ['key' => 'value']);
+
+        $lastRequest = $this->httpClient->lastRequest();
+        $body = json_decode($lastRequest->getBody()->getContents(), true);
+        $this->assertEquals('value', $body['context']['key']);
+    }
+
+    public function testExplicitlySetUserIdHasHigherPriority()
+    {
+        request()->setUserResolver(function () {
+            return new class {
+                public function getAuthIdentifier()
+                {
+                    return 'automatic';
+                }
+            };
+        });
+
+        $this->crashubClient->report(new \Exception('Test Error'), ['user_id' => 'manual']);
+
+        $lastRequest = $this->httpClient->lastRequest();
+        $body = json_decode($lastRequest->getBody()->getContents(), true);
+        $this->assertEquals('manual', $body['context']['user_id']);
+    }
+
+    public function testContextOnReportHasHigherPriorityThanContextSetInAdvance()
+    {
+        $this->crashubClient->context('key', 'value1');
+
+        $this->crashubClient->report(new \Exception('Test Error'), ['key' => 'value2']);
+
+        $lastRequest = $this->httpClient->lastRequest();
+        $body = json_decode($lastRequest->getBody()->getContents(), true);
+        $this->assertEquals('value2', $body['context']['key']);
+    }
 }

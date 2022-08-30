@@ -5,14 +5,17 @@ namespace Crashub;
 class CrashubClient
 {
     private $apiUrl;
+    private $httpClient;
+    private $context;
 
     function __construct($httpClient)
     {
         $this->apiUrl = config('crashub.api_url') ?: 'https://app.crashub.com/api/crashes';
         $this->httpClient = $httpClient;
+        $this->context = [];
     }
 
-    public function report(\Throwable $exception)
+    public function report(\Throwable $exception, $context = [])
     {
         try
         {
@@ -26,7 +29,13 @@ class CrashubClient
 
             if (request()->user())
             {
-                $requestBody['context']['user_id'] = request()->user()->getAuthIdentifier();
+                $this->context = array_merge(['user_id' => request()->user()->getAuthIdentifier()], $this->context);
+            }
+
+            $this->context = array_merge($this->context, $context);
+
+            if (sizeof($this->context) > 0) {
+                $requestBody['context'] = $this->context;
             }
 
             $requestBody['request'] = [
@@ -54,6 +63,18 @@ class CrashubClient
         catch (\Throwable $e)
         {
             \Illuminate\Support\Facades\Log::error($e);
+        }
+    }
+
+    public function context($key, $value = null)
+    {
+        if (is_array($key))
+        {
+            $this->context = array_merge($this->context, $key);
+        }
+        else
+        {
+            $this->context[$key] = $value;
         }
     }
 
