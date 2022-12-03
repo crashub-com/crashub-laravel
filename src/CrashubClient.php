@@ -95,7 +95,7 @@ class CrashubClient
             ];
 
             $file = $frame['file'] ?? '';
-            $line = $frame['line'] ?? 'unknown';
+            $line = $frame['line'] ?? -1;
         }
 
         $callstack[] = [
@@ -113,7 +113,7 @@ class CrashubClient
     {
         $linesCount = 9;
 
-        if (!file_exists($fileName)) { return null; }
+        if (!file_exists($fileName) || $lineNumber < 0) { return null; }
 
         try
         {
